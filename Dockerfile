@@ -1,11 +1,14 @@
-
 FROM php:8.2-apache
 
-# Copier tous les fichiers dans le répertoire par défaut d'Apache
+# Copier tous les fichiers
 COPY . /var/www/html/
 
-# Activer mod_rewrite pour les URLs propres
+# Activer mod_rewrite
 RUN a2enmod rewrite
 
-# Exposer le port 80 (Render l'utilisera)
-EXPOSE 80
+# Configurer Apache pour écouter sur le port 10000
+RUN sed -i 's/80/10000/g' /etc/apache2/ports.conf
+RUN sed -i 's/80/10000/g' /etc/apache2/sites-available/000-default.conf
+
+# Exposer le port 10000
+EXPOSE 10000
